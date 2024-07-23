@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Settings</title>
+<style>
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background: var(--background-color);
+    transition: background-color 0.3s;
+  }
+  :root {
+    --background-color: #eff3f5;
+    --foreground-color: #ffffff;
+    --button-color: #007bff;
+    --button-hover-color: #0056b3;
+    --text-color: #333;
+  }
+  body.dark-mode {
+    --background-color: #333;
+    --foreground-color: #444;
+    --button-color: #555;
+    --button-hover-color: #777;
+    --text-color: #fff;
+  }
+  .settings-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 400px;
+    background: var(--foreground-color);
+    border-radius: 20px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    overflow: hidden;
+    transition: background-color 0.3s;
+  }
+  .settings-form {
+    text-align: center;
+    width: 100%;
+    padding: 20px;
+  }
+  label, select, button {
+    font-size: 18px;
+    margin: 10px 0;
+  }
+  .connect-btn, .disconnect-btn {
+    padding: 10px 20px;
+    margin: 5px;
+    border: none;
+    border-radius: 8px;
+    background: var(--button-color);
+    color: white;
+    cursor: pointer;
+    font-size: 18px;
+    transition: background-color 0.3s, box-shadow 0.3s, transform 0.1s;
+  }
+  .connect-btn:hover, .disconnect-btn:hover {
+    background-color: var(--button-hover-color);
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  }
+  .connect-btn:active, .disconnect-btn:active {
+    transform: scale(0.95);
+  }
+  .device-list, .connected-list {
+    margin-top: 20px;
+    text-align: left;
+  }
+  .status {
+    font-size: 16px;
+    margin-top: 10px;
+  }
+  .bottom-bar {
+    display: flex;
+    justify-content: space-around;
+    background: var(--button-color);
+    padding: 10px 0;
+    width: 100%;
+    border-radius: 0 0 20px 20px;
+  }
+  .bottom-bar img {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+  }
+  .bottom-bar img:hover {
+    filter: brightness(0.8);
+  }
+  .device-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .device-name {
+    margin-right: 10px;
+  }
+  .tooltip {
+    position: relative;
+    display: inline-block;
+  }
+  .tooltip .tooltiptext {
+    visibility: hidden;
+    width: 100px;
+    background-color: #555;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%; /* Position above the text */
+    left: 50%;
+    margin-left: -50px;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+  }
+  .co2-savings {
+    font-size: 18px;
+    margin: 20px 0;
+    text-align: center;
+  }
+  .discount-message {
+    font-size: 16px;
+    color: green;
+    text-align: center;
+  }
+  .co2-info {
+    font-size: 14px;
+    text-align: center;
+    margin: 10px 0;
+  }
+  .progress-container {
+    width: 100%;
+    background: #ccc;
+    border-radius: 20px;
+    margin: 20px 0;
+  }
+  .progress-bar {
+    height: 20px;
+    background: var(--button-color);
+    border-radius: 20px;
+    width: 0;
+    transition: width 0.3s;
+  }
+</style>
+</head>
+<body>
+<div class="settings-container">
+  <div class="settings-form">
+    <h2>Settings</h2>
+    <div>
+      <label for="theme-select">Theme:</label>
+      <select id="theme-select" onchange="changeTheme(this.value)">
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </div>
+    <button class="connect-btn" onclick="showDeviceList()">Connect to Thermostat</button>
+    <h3>Connected Devices</h3>
+    <ul id="connected-list" class="connected-list"></ul>
+    <h3>Other Devices</h3>
+    <ul id="device-list" class="device-list"></ul>
+    <div id="connection-status" class="status"></div>
+    <div class="co2-savings" id="co2-savings">CO2 Saved: 0 kg</div>
+    <div class="discount-message" id="discount-message"></div>
+    <div class="progress-container">
+      <div class="progress-bar" id="progress-bar"></div>
+    </div>
+    <div class="co2-info">Save 1000 kg of CO2 to get 10% off your next month's payment!</div>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="tooltip">
+      <img src="home.png" alt="Home" onclick="window.location='index.html'">
+      <span class="tooltiptext">Home</span>
+    </div>
+    <div class="tooltip">
+      <img src="clock.png" alt="Scheduling" onclick="window.location='scheduling.html'">
+      <span class="tooltiptext">Scheduling</span>
+    </div>
+    <div class="tooltip">
+      <img src="graph.png" alt="Statistics" onclick="window.location='statistics.html'">
+      <span class="tooltiptext">Statistics</span>
+    </div>
+    <div class="tooltip">
+      <img src="leaf.png" alt="Greens" onclick="window.location='greens.html'">
+      <span class="tooltiptext">Greens</span>
+    </div>
+    <div class="tooltip">
+      <img src="settings.png" alt="Settings" onclick="window.location='settings.html'">
+      <span class="tooltiptext">Settings</span>
+    </div>
+  </div>
+</div>
+
+<script>
+let currentDevice = null;
+
+document.addEventListener('DOMContentLoaded', function() {
+  const theme = localStorage.getItem('theme') || 'light';
+  changeTheme(theme);
+  document.getElementById('theme-select').value = theme;
+  updateCO2Savings();
+});
+
+function changeTheme(theme) {
+  document.body.classList.toggle('dark-mode', theme === 'dark');
+  localStorage.setItem('theme', theme);
+}
+
+function showDeviceList() {
+  const deviceList = document.getElementById('device-list');
+  const connectedList = document.getElementById('connected-list');
+  connectedList.innerHTML = '';
+  deviceList.innerHTML = '';
+  const numDevices = Math.floor(Math.random() * 6) + 3;
+  for (let i = 0; i < numDevices; i++) {
+    addDeviceToList(deviceList, `Thermometer ${Math.floor(Math.random() * 9000) + 1000}`);
+  }
+}
+
+function addDeviceToList(list, name) {
+  const listItem = document.createElement('li');
+  listItem.className = 'device-item';
+  listItem.textContent = name;
+  const connectButton = document.createElement('button');
+  connectButton.textContent = 'Connect';
+  connectButton.className = 'connect-btn';
+  connectButton.onclick = () => connectToDevice(name, listItem, connectButton);
+  listItem.appendChild(connectButton);
+  list.appendChild(listItem);
+}
+
+function connectToDevice(name, listItem, connectButton) {
+  connectButton.textContent = 'Connecting...';
+  connectButton.disabled = true;
+  setTimeout(() => {
+    connectButton.style.display = 'none'; // Hide the connecting button once connected
+    if (currentDevice) {
+      moveDeviceToOther(currentDevice.name, currentDevice.listItem);
+    }
+    currentDevice = { name, listItem, connectButton };
+    moveDeviceToConnected(name, listItem, connectButton);
+  }, 5000); // Simulate a 5-second delay
+}
+
+function moveDeviceToConnected(name, listItem, connectButton) {
+  const connectedList = document.getElementById('connected-list');
+  connectedList.innerHTML = ''; // Only one device can be connected
+  const disconnectButton = document.createElement('button');
+  disconnectButton.textContent = 'Disconnect';
+  disconnectButton.className = 'disconnect-btn';
+  disconnectButton.onclick = () => moveDeviceToOther(name, listItem);
+  listItem.appendChild(disconnectButton);
+  connectedList.appendChild(listItem);
+}
+
+function moveDeviceToOther(name, listItem) {
+  const deviceList = document.getElementById('device-list');
+  listItem.innerHTML = name; // Clear all buttons and text from the listItem
+  const connectButton = document.createElement('button');
+  connectButton.textContent = 'Connect';
+  connectButton.className = 'connect-btn';
+  connectButton.onclick = () => connectToDevice(name, listItem, connectButton);
+  listItem.appendChild(connectButton);
+  deviceList.appendChild(listItem);
+  if (currentDevice && currentDevice.name === name) currentDevice = null;
+}
+
+function updateCO2Savings() {
+  const co2Savings = parseFloat(localStorage.getItem('co2Savings')) || 0;
+  document.getElementById('co2-savings').innerText = `CO2 Saved: ${co2Savings.toFixed(2)} kg`;
+
+  const progressBar = document.getElementById('progress-bar');
+  const progressPercent = (co2Savings / 1000) * 100;
+  progressBar.style.width = `${progressPercent}%`;
+
+  if (co2Savings >= 1000) {
+    document.getElementById('discount-message').innerText = 'Congratulations! You have saved 1 tonne of CO2. You get 10% off your next month\'s payment!';
+  } else {
+    document.getElementById('discount-message').innerText = '';
+  }
+}
+
+function addCO2Savings(amount) {
+  let co2Savings = parseFloat(localStorage.getItem('co2Savings')) || 0;
+  co2Savings += amount;
+  localStorage.setItem('co2Savings', co2Savings);
+  updateCO2Savings();
+}
+</script>
+</body>
+</html>

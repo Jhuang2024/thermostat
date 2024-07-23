@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Schedule Temperature</title>
+<style>
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background: var(--background-color);
+    transition: background-color 0.3s;
+  }
+  :root {
+    --background-color: #eff3f5;
+    --foreground-color: #ffffff;
+    --button-color: #007bff;
+    --button-hover-color: #0056b3;
+    --text-color: #333;
+  }
+  body.dark-mode {
+    --background-color: #333;
+    --foreground-color: #444;
+    --button-color: #555;
+    --button-hover-color: #777;
+    --text-color: #fff;
+  }
+  .schedule-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 400px;
+    background: var(--foreground-color);
+    border-radius: 20px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    overflow: hidden;
+    transition: background-color 0.3s;
+    overflow-x: auto; /* Allows table to scroll horizontally if it overflows */
+  }
+  .schedule-form {
+    text-align: center;
+    width: 100%;
+    padding: 20px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 20px;
+  }
+  th, td {
+    padding: 10px;
+    border: 1px solid #ccc;
+    text-align: center;
+    min-width: 120px; /* Ensures minimum width for each column */
+  }
+  th {
+    background: var(--button-color);
+    color: white;
+  }
+  input, select, button {
+    padding: 10px;
+    margin: 5px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+    width: calc(100% - 22px);
+    box-sizing: border-box;
+  }
+  button {
+    background: var(--button-color);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 18px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    margin-top: 20px;
+  }
+  button:hover {
+    background-color: var(--button-hover-color);
+  }
+  .add-range, .remove-btn {
+    background: #28a745;
+  }
+  .add-range:hover, .remove-btn:hover {
+    background-color: #218838;
+  }
+  .remove-btn {
+    background: #dc3545;
+  }
+  .remove-btn:hover {
+    background-color: #c82333;
+  }
+  .action-btn {
+    width: 100%;
+    max-width: 200px;
+    margin: 10px auto;
+    display: block;
+  }
+  .bottom-bar {
+    display: flex;
+    justify-content: space-between;
+    background: var(--button-color);
+    padding: 10px 0;
+    width: 100%;
+    border-radius: 0 0 20px 20px;
+  }
+  .bottom-bar img {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    margin: 0 10px; /* Ensure icons are evenly spaced */
+  }
+  .bottom-bar img:hover {
+    filter: brightness(0.8);
+  }
+  .tooltip {
+    position: relative;
+    display: inline-block;
+  }
+  .tooltip .tooltiptext {
+    visibility: hidden;
+    width: 120px;
+    background-color: #555;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 100%; /* Align tooltip directly above the icon */
+    left: 50%;
+    margin-left: -60px; /* Center the tooltip */
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+<div class="schedule-container">
+  <div class="schedule-form">
+    <h2>Schedule Temperature</h2>
+    <table id="schedule-table">
+      <thead>
+        <tr>
+          <th>Day</th>
+          <th>Time Range</th>
+          <th>Status</th>
+          <th>Temperature</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Rows will be added here dynamically -->
+      </tbody>
+    </table>
+    <button class="add-range" onclick="addTimeRange()">Add Time Range</button>
+    <button class="action-btn" onclick="setSchedule()">Set Schedule</button>
+  </div>
+  <div class="bottom-bar">
+    <div class="tooltip">
+      <img src="home.png" alt="Home" onclick="window.location='index.html'">
+      <span class="tooltiptext">Home</span>
+    </div>
+    <div class="tooltip">
+      <img src="clock.png" alt="Scheduling" onclick="window.location='scheduling.html'">
+      <span class="tooltiptext">Scheduling</span>
+    </div>
+    <div class="tooltip">
+      <img src="graph.png" alt="Statistics" onclick="window.location='statistics.html'">
+      <span class="tooltiptext">Statistics</span>
+    </div>
+    <div class="tooltip">
+      <img src="leaf.png" alt="Greens" onclick="window.location='greens.html'">
+      <span class="tooltiptext">Greens</span>
+    </div>
+    <div class="tooltip">
+      <img src="settings.png" alt="Settings" onclick="window.location='settings.html'">
+      <span class="tooltiptext">Settings</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const homeTemperature = parseInt(localStorage.getItem('homeTemperature')) || 20;
+  const awayTemperature = parseInt(localStorage.getItem('awayTemperature')) || 15;
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const savedSchedules = JSON.parse(localStorage.getItem('weeklySchedules')) || [];
+    savedSchedules.forEach(schedule => addTimeRange(schedule));
+    
+    // Load theme from local storage
+    const theme = localStorage.getItem('theme') || 'light';
+    changeTheme(theme);
+  });
+
+  function addTimeRange(schedule = {}) {
+    const tbody = document.querySelector('#schedule-table tbody');
+    const row = document.createElement('tr');
+    row.innerHTML = `
+      <td>
+        <select class="day">
+          ${days.map(day => `<option value="${day}" ${schedule.day === day ? 'selected' : ''}>${day}</option>`).join('')}
+        </select>
+      </td>
+      <td>
+        <input type="time" class="start-time" value="${schedule.startTime || ''}">
+        to
+        <input type="time" class="end-time" value="${schedule.endTime || ''}">
+      </td>
+      <td>
+        <select class="status">
+          <option value="home" ${schedule.status === 'home' ? 'selected' : ''}>At Home</option>
+          <option value="away" ${schedule.status === 'away' ? 'selected' : ''}>Away</option>
+        </select>
+      </td>
+      <td>
+        <input type="number" class="temperature" placeholder="°C" value="${schedule.temperature || (schedule.status === 'home' ? homeTemperature : awayTemperature)}">
+      </td>
+      <td>
+        <button class="remove-btn" onclick="removeTimeRange(this)">Remove</button>
+      </td>
+    `;
+    tbody.appendChild(row);
+  }
+
+  function removeTimeRange(button) {
+    const row = button.parentElement.parentElement;
+    row.parentElement.removeChild(row);
+  }
+
+  function setSchedule() {
+    const schedules = [];
+    document.querySelectorAll('#schedule-table tbody tr').forEach(row => {
+      const daySelect = row.querySelector('.day');
+      if (!daySelect) return;
+      const day = daySelect.value;
+      const startTime = row.querySelector('.start-time').value;
+      const endTime = row.querySelector('.end-time').value;
+      const status = row.querySelector('.status').value;
+      const temperature = row.querySelector('.temperature').value;
+      schedules.push({ day, startTime, endTime, status, temperature });
+    });
+    localStorage.setItem('weeklySchedules', JSON.stringify(schedules));
+    alert('Weekly schedule set successfully.');
+    window.location.reload();  // Reload to update the displayed schedule
+  }
+  
+  function changeTheme(theme) {
+    document.body.classList.toggle('dark-mode', theme === 'dark');
+    localStorage.setItem('theme', theme);
+  }
+</script>
+</body>
+</html>

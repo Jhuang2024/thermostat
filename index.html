@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stylish Smart Thermostat</title>
+  <style>
+    body {
+      font-family: 'Helvetica Neue', Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background: rgba(128, 128, 128, 0.5); /* Default to grey */
+      transition: background 0.3s;
+    }
+    :root {
+      --foreground-color: #ffffff;
+      --button-color: #007bff;
+      --button-hover-color: #0056b3;
+      --text-color: #333;
+    }
+    body.dark-mode {
+      --foreground-color: #444;
+      --button-color: #555;
+      --button-hover-color: #777;
+      --text-color: #fff;
+    }
+    .loading-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .logo {
+      width: 200px;
+    }
+    .thermostat-container {
+      display: none; /* Initially hidden */
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 400px;
+      background: var(--foreground-color);
+      border-radius: 20px;
+      box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+      overflow: hidden;
+      transition: background-color 0.3s;
+    }
+    .thermostat {
+      text-align: center;
+      width: 100%;
+      padding: 20px;
+    }
+    .gauge {
+      width: 180px;
+      height: 180px;
+      margin: 0 auto;
+      display: block;
+    }
+    .temperature-display {
+      font-size: 24px;
+      color: var(--text-color);
+      margin: 20px 0;
+    }
+    button, .temp-button {
+      padding: 10px 20px;
+      margin: 5px;
+      border: none;
+      border-radius: 8px;
+      background: var(--button-color);
+      color: var(--text-color);
+      cursor: pointer;
+      font-size: 18px;
+      transition: background-color 0.3s, box-shadow 0.3s, transform 0.1s;
+      outline: none;
+    }
+    button:hover, .temp-button:hover {
+      background-color: var(--button-hover-color);
+      box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    button:active, .temp-button:active {
+      transform: scale(0.95);
+    }
+    .toggle {
+      background: #629e64;
+    }
+    .toggle:hover {
+      background: #629e64;
+    }
+    input[type="number"] {
+      font-size: 16px;
+      padding: 10px;
+      margin: 10px 0;
+      border: 2px solid #ccc;
+      border-radius: 5px;
+      width: calc(100% - 22px);
+      transition: border-color 0.3s;
+    }
+    input[type="number"]:focus {
+      border-color: var(--button-color);
+    }
+    .section {
+      margin-top: 20px;
+    }
+    .bottom-bar {
+      display: flex;
+      justify-content: space-around;
+      background: var(--button-color);
+      padding: 10px 0;
+      width: 100%;
+      border-radius: 0 0 20px 20px;
+    }
+    .bottom-bar img {
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+    }
+    .bottom-bar img:hover {
+      filter: brightness(0.8);
+    }
+    .tooltip {
+      position: relative;
+      display: inline-block;
+    }
+    .tooltip .tooltiptext {
+      visibility: hidden;
+      width: 100px;
+      background-color: #555;
+      color: #fff;
+      text-align: center;
+      border-radius: 6px;
+      padding: 5px;
+      position: absolute;
+      z-index: 1;
+      bottom: 125%; /* Position above the text */
+      left: 50%;
+      margin-left: -50px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .tooltip:hover .tooltiptext {
+      visibility: visible;
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="loading-screen">
+    <img src="prototype 1.png" alt="ONDO Energy Logo" class="logo">
+  </div>
+  <div class="thermostat-container">
+    <div class="thermostat">
+      <img src="prototype 1.png" alt="ONDO Energy Logo" class="logo">
+      <svg class="gauge" viewBox="0 0 180 180">
+        <circle cx="90" cy="90" r="70" fill="transparent" stroke="url(#temp-gradient)" stroke-width="18"></circle>
+        <defs>
+          <radialGradient id="temp-gradient">
+            <stop id="start-color" offset="0%" stop-color="#3498db" />
+            <stop id="end-color" offset="100%" stop-color="#e74c3c" />
+          </radialGradient>
+        </defs>
+        <text x="50%" y="50%" text-anchor="middle" fill="#333" font-size="24px" dy=".3em" id="current-temp">22°C</text>
+      </svg>
+      <div class="temperature-display" id="temp-display">Set Temp: 20°C</div>
+      <div class="temperature-display" id="current-temp-display">Current Temp: 22°C</div>
+      <div>
+        <button class="temp-button" onclick="changeTemp(-1)">-</button>
+        <button class="temp-button" onclick="changeTemp(1)">+</button>
+      </div>
+      <div class="section">
+        <label for="mode-select">Mode:</label>
+        <select id="mode-select" onchange="changeMode(this.value)">
+          <option value="off">Off</option>
+          <option value="heat">Heat</option>
+          <option value="cool">Cool</option>
+          <option value="auto">Auto</option>
+        </select>
+      </div>
+      <div class="section">
+        <button class="toggle" id="home-away-btn" onclick="toggleHomeAway()">At Home</button>
+        <input type="number" id="home-temp" value="20" style="display: none;">
+        <input type="number" id="away-temp" value="15" style="display: none;">
+      </div>
+    </div>
+    <div class="bottom-bar">
+      <div class="tooltip">
+        <img src="home.png" alt="Home" onclick="window.location='index.html'">
+        <span class="tooltiptext">Home</span>
+      </div>
+      <div class="tooltip">
+        <img src="clock.png" alt="Scheduling" onclick="window.location='scheduling.html'">
+        <span class="tooltiptext">Scheduling</span>
+      </div>
+      <div class="tooltip">
+        <img src="graph.png" alt="Statistics" onclick="window.location='statistics.html'">
+        <span class="tooltiptext">Statistics</span>
+      </div>
+      <div class="tooltip">
+        <img src="leaf.png" alt="Greens" onclick="window.location='greens.html'">
+        <span class="tooltiptext">Greens</span>
+      </div>
+      <div class="tooltip">
+        <img src="settings.png" alt="Settings" onclick="window.location='settings.html'">
+        <span class="tooltiptext">Settings</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var temperature = 20;
+    var homeTemperature = 20;
+    var awayTemperature = 15;
+    var atHome = true;
+    var highTempAcknowledged = false;
+    var lowTempAcknowledged = false;
+    var currentTemp = 22; // Simulated current temperature
+
+    document.addEventListener('DOMContentLoaded', function() {
+      // Show the loading screen for 3 seconds
+      setTimeout(function() {
+        document.querySelector('.loading-screen').style.display = 'none';
+        document.querySelector('.thermostat-container').style.display = 'flex';
+      }, 3000);
+
+      // Load initial temperatures from local storage
+      homeTemperature = parseInt(localStorage.getItem('homeTemperature')) || 20;
+      awayTemperature = parseInt(localStorage.getItem('awayTemperature')) || 15;
+      temperature = atHome ? homeTemperature : awayTemperature;
+      document.getElementById('home-temp').value = homeTemperature;
+      document.getElementById('away-temp').value = awayTemperature;
+      updateDisplay();
+      
+      // Load theme and mode from local storage
+      const theme = localStorage.getItem('theme') || 'light';
+      changeTheme(theme);
+      const mode = localStorage.getItem('mode') || 'off';
+      changeMode(mode);
+      document.getElementById('theme-select').value = theme;
+      document.getElementById('mode-select').value = mode;
+
+      // Simulate temperature change over time
+      setInterval(() => {
+        if (currentTemp < temperature) {
+          currentTemp++;
+        } else if (currentTemp > temperature) {
+          currentTemp--;
+        }
+        document.getElementById('current-temp-display').innerText = `Current Temp: ${currentTemp}°C`;
+        updateBackgroundTransparency();
+      }, 300000); // 5 minutes interval
+    });
+
+    function updateDisplay() {
+      const tempDisplay = document.getElementById('temp-display');
+      const currentTempDisplay = document.getElementById('current-temp-display');
+      tempDisplay.innerText = `Set Temp: ${temperature}°C`;
+      currentTempDisplay.innerText = `Current Temp: ${currentTemp}°C`;
+      updateGradient();
+      document.getElementById('home-temp').style.display = atHome ? 'inline' : 'none';
+      document.getElementById('away-temp').style.display = atHome ? 'none' : 'inline';
+      resetWarningsIfNeeded();
+      updateBackgroundTransparency();
+    }
+
+    function changeTemp(change) {
+      const newTemp = temperature + change;
+      if (newTemp > 40) {
+        alert("Maximum temperature setting is 40°C.");
+        return;
+      }
+      if (newTemp < 0) {
+        alert("Minimum temperature setting is 0°C.");
+        return;
+      }
+      if ((newTemp > 30 && !highTempAcknowledged) || (newTemp < 10 && !lowTempAcknowledged)) {
+        confirmTemperatureChange(newTemp);
+      } else {
+        setTemperature(newTemp);
+      }
+    }
+
+    function setTemperature(newTemp) {
+      temperature = newTemp;
+      if (atHome) {
+        homeTemperature = temperature;
+        localStorage.setItem('homeTemperature', homeTemperature);
+        document.getElementById('home-temp').value = homeTemperature;
+      } else {
+        awayTemperature = temperature;
+        localStorage.setItem('awayTemperature', awayTemperature);
+        document.getElementById('away-temp').value = awayTemperature;
+      }
+      updateDisplay();
+    }
+
+    function confirmTemperatureChange(newTemp) {
+      const message = newTemp > 30 ?
+        "Setting the temperature above 30°C may be dangerous for a sustained period of time. Do you want to proceed?" :
+        "Setting the temperature below 10°C may be dangerous for a sustained period of time. Do you want to proceed?";
+      if (confirm(message)) {
+        setTemperature(newTemp);
+        if (newTemp > 30) {
+          highTempAcknowledged = true;
+        } else if (newTemp < 10) {
+          lowTempAcknowledged = true;
+        }
+      } else {
+        updateDisplay(); // Refresh to show current valid temperature if they cancel
+      }
+    }
+
+    function resetWarningsIfNeeded() {
+      if (temperature >= 10 && temperature <= 30) {
+        highTempAcknowledged = false;
+        lowTempAcknowledged = false;
+      }
+    }
+
+    function updateGradient() {
+      const percent = (temperature - 10) / 30; // Adjust the range to be from 10°C to 40°C
+      const startColorStop = document.getElementById('start-color');
+      const endColorStop = document.getElementById('end-color');
+      startColorStop.setAttribute("stop-color", `hsl(${120 * (1 - percent)}, 100%, 50%)`); // Calculate color from green to red
+      endColorStop.setAttribute("stop-color", `hsl(${120 * (1 - percent)}, 100%, 50%)`);
+    }
+
+    function toggleHomeAway() {
+      atHome = !atHome;
+      temperature = atHome ? homeTemperature : awayTemperature;
+      var button = document.getElementById('home-away-btn');
+      button.innerText = atHome ? 'At Home' : 'Away';
+      button.style.background = atHome ? '#4CAF50' : '#F44336';
+      updateDisplay();
+    }
+
+    function changeTheme(theme) {
+      document.body.classList.toggle('dark-mode', theme === 'dark');
+      localStorage.setItem('theme', theme);
+    }
+
+    function changeMode(mode) {
+      localStorage.setItem('mode', mode);
+      updateBackgroundTransparency();
+    }
+
+    function getTransparency(temperature, targetTemperature) {
+      const maxDifference = 30; // maximum difference to calculate transparency
+      const difference = Math.abs(targetTemperature - temperature);
+      return (0.1 + (difference / maxDifference) * 0.9).toFixed(2); // range between 0.1 and 1
+    }
+
+    function updateBackgroundTransparency() {
+      const mode = document.getElementById('mode-select').value;
+      const transparency = getTransparency(currentTemp, temperature);
+      let backgroundColor;
+      switch(mode) {
+        case 'heat':
+          backgroundColor = `rgba(231, 76, 60, ${transparency})`; // Red
+          break;
+        case 'cool':
+          backgroundColor = `rgba(52, 152, 219, ${transparency})`; // Blue
+          break;
+        case 'auto':
+          const heatTransparency = getTransparency(currentTemp, temperature);
+          const coolTransparency = getTransparency(currentTemp, temperature);
+          backgroundColor = `linear-gradient(135deg, rgba(231, 76, 60, ${heatTransparency}) 0%, rgba(52, 152, 219, ${coolTransparency}) 100%)`; // Gradient from red to blue
+          break;
+        default:
+          backgroundColor = `rgba(128, 128, 128, ${transparency})`; // Grey
+      }
+      document.body.style.background = backgroundColor;
+    }
+  </script>
+</body>
+</html>

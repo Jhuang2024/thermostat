@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Energy and Cost Statistics</title>
+<style>
+  body {
+    font-family: 'Helvetica Neue', Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background: var(--background-color);
+    transition: background-color 0.3s;
+  }
+  :root {
+    --background-color: #eff3f5;
+    --foreground-color: #ffffff;
+    --button-color: #007bff;
+    --button-hover-color: #0056b3;
+    --text-color: #333;
+  }
+  body.dark-mode {
+    --background-color: #333;
+    --foreground-color: #444;
+    --button-color: #555;
+    --button-hover-color: #777;
+    --text-color: #fff;
+  }
+  .statistics-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 400px;
+  }
+  .statistics-form {
+    background: var(--foreground-color);
+    border-radius: 20px 20px 0 0;
+    text-align: center;
+    width: 100%;
+    padding: 20px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    transition: background-color 0.3s;
+  }
+  .result {
+    font-size: 18px;
+    margin-top: 10px;
+  }
+  .bottom-bar {
+    display: flex;
+    justify-content: space-around;
+    background: var(--button-color);
+    border-top: 2px solid #ccc;
+    padding: 10px 0;
+    width: 100%;
+    max-width: 400px;
+    border-radius: 0 0 20px 20px;
+  }
+  .bottom-bar img {
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+  }
+  .bottom-bar img:hover {
+    filter: brightness(0.8);
+  }
+  canvas {
+    margin-top: 20px;
+    width: 100%;
+    max-width: 400px;
+  }
+  .tooltip {
+    position: relative;
+    display: inline-block;
+  }
+  .tooltip .tooltiptext {
+    visibility: hidden;
+    width: 100px;
+    background-color: #555;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%; /* Position above the text */
+    left: 50%;
+    margin-left: -50px;
+    opacity: 0;
+    transition: opacity 0.3s, visibility 0.3s;
+  }
+  .tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+  }
+</style>
+</head>
+<body>
+<div class="statistics-container">
+  <div class="statistics-form">
+    <h2>Energy and Cost Statistics</h2>
+    <button onclick="calculateStatistics()">Calculate Statistics</button>
+    <div class="result" id="energy-result">Energy Usage: </div>
+    <div class="result" id="daily-cost-result">Daily Cost: </div>
+    <div class="result" id="weekly-cost-result">Weekly Cost: </div>
+    <div class="result" id="monthly-cost-result">Monthly Cost: </div>
+    <div class="result" id="co2-saved-result">CO2 Saved: </div>
+    <div class="result" id="money-saved-result">Money Saved: </div>
+    <canvas id="energyCostChart"></canvas>
+    <button onclick="exportChart()">Export Chart</button>
+  </div>
+
+  <div class="bottom-bar">
+    <div class="tooltip">
+      <img src="home.png" alt="Home" onclick="window.location='index.html'">
+      <span class="tooltiptext">Home</span>
+    </div>
+    <div class="tooltip">
+      <img src="clock.png" alt="Scheduling" onclick="window.location='scheduling.html'">
+      <span class="tooltiptext">Scheduling</span>
+    </div>
+    <div class="tooltip">
+      <img src="graph.png" alt="Statistics" onclick="window.location='statistics.html'">
+      <span class="tooltiptext">Statistics</span>
+    </div>
+    <div class="tooltip">
+      <img src="leaf.png" alt="Greens" onclick="window.location='greens.html'">
+      <span class="tooltiptext">Greens</span>
+    </div>
+    <div class="tooltip">
+      <img src="settings.png" alt="Settings" onclick="window.location='settings.html'">
+      <span class="tooltiptext">Settings</span>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const BaseEnergy = 5; // kWh
+  const Multiplier = 0.5; // kWh per degree
+  const CostPerkWh = 0.12; // $
+  const CO2PerkWh = 0.233; // kg CO2 per kWh
+  const MoneySavedPerDegree = 0.02; // $ saved per degree per hour
+  const AverageOutdoorTemperature = 25; // °C
+
+  function calculateStatistics() {
+    const homeTemperature = parseInt(localStorage.getItem('homeTemperature')) || 20;
+    const awayTemperature = parseInt(localStorage.getItem('awayTemperature')) || 15;
+    const weeklySchedules = JSON.parse(localStorage.getItem('weeklySchedules')) || [];
+    
+    const days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    let dailyEnergyUsage = Array(7).fill(0);
+    let dailyCost = Array(7).fill(0);
+    let totalMoneySaved = 0;
+
+    days.forEach((day, index) => {
+      let dailySchedule = weeklySchedules.filter(schedule => schedule.day === day);
+      if (dailySchedule.length === 0) {
+        // No schedule for this day, assume "Away" for the whole day
+        dailyEnergyUsage[index] += calculateEnergy(awayTemperature, 24);
+      } else {
+        // Calculate energy usage for each scheduled period
+        dailySchedule.forEach(schedule => {
+          const startTime = parseTime(schedule.startTime);
+          const endTime = parseTime(schedule.endTime);
+          const hours = (endTime - startTime) / 60;
+          const temperature = schedule.status === 'home' ? homeTemperature : awayTemperature;
+          dailyEnergyUsage[index] += calculateEnergy(temperature, hours);
+
+          // Calculate money saved
+          const tempDifference = Math.abs(AverageOutdoorTemperature - temperature);
+          totalMoneySaved += MoneySavedPerDegree * tempDifference * hours;
+        });
+        // Assume "Away" for the remaining hours
+        const scheduledHours = dailySchedule.reduce((acc, schedule) => {
+          const startTime = parseTime(schedule.startTime);
+          const endTime = parseTime(schedule.endTime);
+          return acc + (endTime - startTime) / 60;
+        }, 0);
+        dailyEnergyUsage[index] += calculateEnergy(awayTemperature, 24 - scheduledHours);
+
+        // Calculate money saved for remaining hours
+        const tempDifferenceAway = Math.abs(AverageOutdoorTemperature - awayTemperature);
+        totalMoneySaved += MoneySavedPerDegree * tempDifferenceAway * (24 - scheduledHours);
+      }
+      dailyCost[index] = dailyEnergyUsage[index] * CostPerkWh;
+    });
+
+    const weeklyEnergyUsage = dailyEnergyUsage.reduce((a, b) => a + b);
+    const weeklyCost = dailyCost.reduce((a, b) => a + b);
+    const monthlyCost = weeklyCost * 4; // Assuming 4 weeks in a month
+    const co2Saved = weeklyEnergyUsage * CO2PerkWh;
+
+    document.getElementById('energy-result').innerText = `Energy Usage: ${weeklyEnergyUsage.toFixed(2)} kWh`;
+    document.getElementById('daily-cost-result').innerText = `Daily Cost: $${(weeklyCost / 7).toFixed(2)}`;
+    document.getElementById('weekly-cost-result').innerText = `Weekly Cost: $${weeklyCost.toFixed(2)}`;
+    document.getElementById('monthly-cost-result').innerText = `Monthly Cost: $${monthlyCost.toFixed(2)}`;
+    document.getElementById('co2-saved-result').innerText = `CO2 Saved: ${co2Saved.toFixed(2)} kg`;
+    document.getElementById('money-saved-result').innerText = `Money Saved: $${totalMoneySaved.toFixed(2)}`;
+
+    // Update CO2 savings in localStorage
+    let totalCO2Saved = parseFloat(localStorage.getItem('co2Savings')) || 0;
+    totalCO2Saved += co2Saved;
+    localStorage.setItem('co2Savings', totalCO2Saved);
+    updateCO2Savings(totalCO2Saved);
+
+    renderChart(dailyEnergyUsage, dailyCost);
+  }
+
+  function parseTime(timeString) {
+    const [hours, minutes] = timeString.split(':').map(Number);
+    return hours * 60 + minutes;
+  }
+
+  function calculateEnergy(temperature, hours) {
+    const TemperatureDifference = Math.abs(AverageOutdoorTemperature - temperature);
+    return (BaseEnergy + (TemperatureDifference * Multiplier)) * hours;
+  }
+
+  function renderChart(energyData, costData) {
+    const ctx = document.getElementById('energyCostChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+        datasets: [
+          {
+            label: 'Energy Usage (kWh)',
+            data: energyData,
+            backgroundColor: 'rgba(54, 162, 235, 0.6)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          },
+          {
+            label: 'Cost ($)',
+            data: costData,
+            backgroundColor: 'rgba(255, 99, 132, 0.6)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 1
+          }
+        ]
+      },
+      options: {
+        scales: {
+          y: {
+            beginAtZero: true
+          }
+        }
+      }
+    });
+  }
+
+  function exportChart() {
+    const canvas = document.getElementById('energyCostChart');
+    const link = document.createElement('a');
+    link.href = canvas.toDataURL('image/png');
+    link.download = 'energy_cost_chart.png';
+    link.click();
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    // Load theme from local storage
+    const theme = localStorage.getItem('theme') || 'light';
+    changeTheme(theme);
+  });
+
+  function changeTheme(theme) {
+    document.body.classList.toggle('dark-mode', theme === 'dark');
+    localStorage.setItem('theme', theme);
+  }
+
+  function updateCO2Savings(co2Savings) {
+    const co2SavingsElement = document.getElementById('co2-savings');
+    if (co2SavingsElement) {
+      co2SavingsElement.innerText = `CO2 Saved: ${co2Savings.toFixed(2)} kg`;
+    }
+  }
+</script>
+</body>
+</html>
